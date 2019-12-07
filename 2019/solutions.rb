@@ -120,48 +120,52 @@ module Day4
   end
 end
 
-module Day5
-  @@input = File.read('input5').split(',').map(&:to_i).freeze
-
+class Intcode
   @@ops   = { add: 1, mult: 2, input: 3, out: 4, jit: 5, jif: 6, lt: 7, eq: 8, halt: 99 }.invert
   @@arity = { add: 3, mult: 3, input: 1, out: 1, jit: 2, jif: 2, lt: 3, eq: 3, halt: 0  }.transform_keys(&@@ops.invert)
 
-  def self.test_air_conditioner
-    run(@@input.dup, 1).find { |out| !out.zero? }
+  Param ||= Struct.new(:raw, :val)
+
+  def initialize(intcode)
+    @ptr = 0
+    @intcode = intcode.dup
   end
 
-  def self.test_thermal_radiator
-    run(@@input.dup, 5).first
-  end
-
-  def self.run(intcode, input)
-    return enum_for(:run, intcode, input) unless block_given?
-    ptr = 0
-
-    loop do
-      modes, opcode = intcode[ptr].divmod(100)
-      raw_params = intcode[ptr + 1, @@arity[opcode]]
+  def run(input)
+    while @ptr
+      modes, opcode = @intcode[@ptr].divmod(100)
+      raw_params = @intcode[@ptr + 1, @@arity[opcode]]
 
       a, b, c = raw_params.each_with_index.map do |raw, i|
         is_position = modes.digits.fetch(i, 0).zero?
-        OpenStruct.new(raw: raw, val: is_position ? intcode[raw] : raw)
+        Param.new(raw, is_position ? @intcode[raw] : raw)
       end
 
-      jump_to = nil
+      @ptr = @ptr + 1 + @@arity[opcode]
       case @@ops[opcode]
-      when :add   then intcode[c.raw] = a.val + b.val
-      when :mult  then intcode[c.raw] = a.val * b.val
-      when :input then intcode[a.raw] = input
-      when :out   then yield a.val
-      when :jit   then jump_to = b.val unless a.val.zero?
-      when :jif   then jump_to = b.val if     a.val.zero?
-      when :lt    then intcode[c.raw] = a.val < b.val ? 1 : 0
-      when :eq    then intcode[c.raw] = a.val == b.val ? 1 : 0
-      when :halt  then break
+      when :add   then @intcode[c.raw] = a.val + b.val
+      when :mult  then @intcode[c.raw] = a.val * b.val
+      when :input then @intcode[a.raw] = input.shift
+      when :out   then block_given? ? (yield a.val) : (return a.val)
+      when :jit   then @ptr = b.val unless a.val.zero?
+      when :jif   then @ptr = b.val if     a.val.zero?
+      when :lt    then @intcode[c.raw] = a.val < b.val ? 1 : 0
+      when :eq    then @intcode[c.raw] = a.val == b.val ? 1 : 0
+      when :halt  then @ptr = nil
       end
-
-      ptr = jump_to || ptr + 1 + @@arity[opcode]
     end
+  end
+end
+
+module Day5
+  @@input = File.read('input5').split(',').map(&:to_i).freeze
+
+  def self.test_air_conditioner
+    Intcode.new(@@input).to_enum(:run, [1]).find { |out| !out.zero? }
+  end
+
+  def self.test_thermal_radiator
+    Intcode.new(@@input).run([5])
   end
 end
 
