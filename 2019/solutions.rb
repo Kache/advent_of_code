@@ -238,3 +238,21 @@ module Day7
     end.max
   end
 end
+
+module Day8
+  @@input = File.read('input8').chomp
+  @@w, @@h = 25, 6
+  @@printable = { '0' => ' ', '1' => '█', '2' => nil }
+
+  def self.blankness_of_blankest_layer(pixels = @@input)
+    pixels.chars.each_slice(@@w * @@h).min_by { |l| l.count('0') }.then { |l| l.count('1') * l.count('2') }
+  end
+
+  def self.print_password(pixels = @@input)
+    image = Array.new(@@w * @@h)
+    pixels.each_char.with_index do |pixel, i|
+      image[i % image.size] ||= @@printable[pixel]
+    end
+    image.each_slice(@@w) { |row| puts row.join }
+  end
+end
