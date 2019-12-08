@@ -201,3 +201,40 @@ module Day6
     distances
   end
 end
+
+module Day7
+  @@input = File.read('input7').split(',').map(&:to_i)
+
+  def self.max_signal(intcode = @@input)
+    Array(0..4).permutation.map do |phase_settings|
+      phase_settings.reduce(0) do |input, setting|
+        Intcode.new(intcode).run([setting, input])
+      end
+    end.max
+  end
+
+  def self.max_looped_signal_threaded(intcode = @@input)
+    Array(5..9).permutation.map do |phase_settings|
+      queues = Array.new(5) { |i| Queue.new << phase_settings[i] }
+      queues.first << 0
+
+      Array.new(5) do |i|
+        Thread.new do
+          Intcode.new(intcode).run(queues[i]) { |v| queues.rotate[i] << v }
+        end
+      end.each(&:join)
+      queues.first.pop
+    end.max
+  end
+
+  def self.max_looped_signal(intcode = @@input)
+    Array(5..9).permutation.map do |phase_settings|
+      amps = Array.new(5) { Intcode.new(intcode) }
+      buffers = phase_settings.map { |s| [s] }
+
+      amps.zip(buffers).cycle.reduce(0) do |input, (amp, buff)|
+        amp.run(buff << input) || (break input)
+      end
+    end.max
+  end
+end
