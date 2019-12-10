@@ -121,37 +121,41 @@ module Day4
 end
 
 class Intcode
-  @@ops   = { add: 1, mult: 2, input: 3, out: 4, jit: 5, jif: 6, lt: 7, eq: 8, halt: 99 }.invert
-  @@arity = { add: 3, mult: 3, input: 1, out: 1, jit: 2, jif: 2, lt: 3, eq: 3, halt: 0  }.transform_keys(&@@ops.invert)
+  OPS   = { add: 1, mul: 2, inp: 3, out: 4, jit: 5, jif: 6, lt: 7, eq: 8, rbo: 9, hlt: 99 }.invert
+  ARITY = { add: 3, mul: 3, inp: 1, out: 1, jit: 2, jif: 2, lt: 3, eq: 3, rbo: 1, hlt: 0  }.transform_keys(&OPS.invert)
 
-  Param ||= Struct.new(:raw, :val)
+  Param = Struct.new(:ref, :val)
 
   def initialize(intcode)
-    @ptr = 0
+    @ptr, @relbase = 0, 0
     @intcode = intcode.dup
   end
 
-  def run(input)
+  def run(input = [])
     while @ptr
-      modes, opcode = @intcode[@ptr].divmod(100)
-      raw_params = @intcode[@ptr + 1, @@arity[opcode]]
+      modes, opcode = @intcode.fetch(@ptr).divmod(100)
+      raw_params = Array.new(ARITY.fetch(opcode)) { |i| @intcode.fetch(@ptr + 1 + i, 0) }
 
-      a, b, c = raw_params.each_with_index.map do |raw, i|
-        is_position = modes.digits.fetch(i, 0).zero?
-        Param.new(raw, is_position ? @intcode[raw] : raw)
+      a, b, c = raw_params.zip(modes.digits).map do |raw, mode|
+        case %i[pos imm rel].fetch(mode || 0)
+        when :pos then Param.new(raw,            @intcode.fetch(raw, 0))
+        when :imm then Param.new(nil,            raw)
+        when :rel then Param.new(@relbase + raw, @intcode.fetch(@relbase + raw, 0))
+        end
       end
 
-      @ptr = @ptr + 1 + @@arity[opcode]
-      case @@ops[opcode]
-      when :add   then @intcode[c.raw] = a.val + b.val
-      when :mult  then @intcode[c.raw] = a.val * b.val
-      when :input then @intcode[a.raw] = input.shift
-      when :out   then block_given? ? (yield a.val) : (return a.val)
-      when :jit   then @ptr = b.val unless a.val.zero?
-      when :jif   then @ptr = b.val if     a.val.zero?
-      when :lt    then @intcode[c.raw] = a.val < b.val ? 1 : 0
-      when :eq    then @intcode[c.raw] = a.val == b.val ? 1 : 0
-      when :halt  then @ptr = nil
+      @ptr += 1 + ARITY[opcode]
+      case OPS[opcode]
+      when :add then @intcode[c.ref] = a.val + b.val
+      when :mul then @intcode[c.ref] = a.val * b.val
+      when :inp then @intcode[a.ref] = input.shift
+      when :out then block_given? ? (yield a.val) : (return a.val)
+      when :jit then @ptr = b.val unless a.val.zero?
+      when :jif then @ptr = b.val if     a.val.zero?
+      when :lt  then @intcode[c.ref] = a.val < b.val ? 1 : 0
+      when :eq  then @intcode[c.ref] = a.val == b.val ? 1 : 0
+      when :rbo then @relbase += a.val
+      when :hlt then @ptr = nil
       end
     end
   end
@@ -254,5 +258,17 @@ module Day8
       image[i % image.size] ||= @@printable[pixel]
     end
     image.each_slice(@@w) { |row| puts row.join }
+  end
+end
+
+module Day9
+  @@input = File.read('input9').split(',').map(&:to_i)
+
+  def self.boost_keycode(intcode = @@input)
+    Intcode.new(intcode).to_enum(:run, [1]).to_a
+  end
+
+  def self.boost(intcode = @@input)
+    Intcode.new(intcode).run([2])
   end
 end
