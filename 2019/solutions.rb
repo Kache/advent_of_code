@@ -6,7 +6,10 @@ gemfile do
   source 'https://rubygems.org'
   ruby '~> 2.6.3'
   gem 'pry-byebug'
+  gem 'activesupport'
 end
+
+require 'active_support/core_ext/enumerable'
 
 module Day1
   @@input = File.readlines('input1').map(&:to_i).freeze
@@ -128,7 +131,7 @@ class Intcode
 
   def initialize(intcode)
     @ptr, @relbase = 0, 0
-    @intcode = intcode.dup
+    @intcode = String === intcode ? intcode.split(',').map(&:to_i) : intcode.dup
   end
 
   def run(input = [])
@@ -270,5 +273,46 @@ module Day9
 
   def self.boost(intcode = @@input)
     Intcode.new(intcode).run([2])
+  end
+end
+
+module Day10
+  @@input = File.read('input10')
+
+  def self.num_viewable(input = @@input)
+    _laser_coord, num_bearings = all_obj_bearings(input).transform_values(&:size).max_by(&:last)
+    num_bearings
+  end
+
+  def self.nth_vaporized(input = @@input, n = 200)
+    all_bearings = all_obj_bearings(input)
+    laser_coord, _num_bearings = all_bearings.transform_values(&:size).max_by(&:last)
+
+    ordered_targets = all_bearings[laser_coord].flat_map do |bearing, group|
+      turn_indexed = group.sort_by { |target| distance(*laser_coord, *target) }.each_with_index
+      turn_indexed.map { |target, turn_num| [turn_num * 2 * Math::PI + bearing, target] }
+    end.sort
+
+    _radians, (x, y) = ordered_targets[n - 1]
+    x * 100 + y
+  end
+
+  def self.all_obj_bearings(input)
+    asteroids = input.each_line.with_index.flat_map do |line, y|
+      line.each_char.with_index.map { |c, x| [x, y] if c == '#' }
+    end.compact
+
+    asteroids.index_with do |candidate|
+      asteroids.without([candidate]).group_by { |asteroid| laser_angle(*candidate, *asteroid) }
+    end
+  end
+
+  def self.distance(from_x, from_y, to_x, to_y)
+    Math.sqrt((from_x - to_x)**2 + (from_y - to_y)**2)
+  end
+
+  def self.laser_angle(from_x, from_y, to_x, to_y)
+    y, x = to_x - from_x, -(to_y - from_y) # coordinate conversion
+    Math.atan2(y, x) % (2 * Math::PI)
   end
 end
