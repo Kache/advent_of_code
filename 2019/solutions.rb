@@ -348,3 +348,44 @@ module Day11
     painted
   end
 end
+
+module Day12
+  @@input = File.read('input12').scan(/<x=(.*?), y=(.*?), z=(.*?)>/).map { |nums| nums.map(&:to_i) }
+
+  Moon = Struct.new(:coord, :veloc)
+
+  def self.total_energy(coords = @@input)
+    moons = coords.map { |coord| Moon.new(Vector[*coord], Vector[0, 0, 0]) }
+
+    1000.times do
+      moons.combination(2).each do |a, b|
+        (0..2).each do |axis|
+          grav = a.coord[axis] <=> b.coord[axis]
+          a.veloc[axis] -= grav
+          b.veloc[axis] += grav
+        end
+      end
+
+      moons.each { |m| m.coord += m.veloc }
+    end
+
+    moons.map { |m| m.map { |v| v.map(&:abs).sum }.inject(:*) }.sum
+  end
+
+  def self.universe_period(coords = @@input)
+    coords.transpose.map do |positions|
+      moons = positions.map { |p| [p, 0] }
+
+      (1..).each do |step|
+        moons.combination(2).each do |a, b|
+          grav = a[0] <=> b[0]
+          a[1] -= grav
+          b[1] += grav
+        end
+        moons.each { |m| m[0] += m[1] }
+
+        break step * 2 if moons.all? { |p, v| v.zero? } # universe timeline is "symmetric"
+      end
+    end.reduce(:lcm)
+  end
+end
