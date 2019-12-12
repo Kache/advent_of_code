@@ -316,3 +316,35 @@ module Day10
     Math.atan2(y, x) % (2 * Math::PI)
   end
 end
+
+module Day11
+  COLOR = { black: 0, white: 1 }
+  PAINT = { black: ' ', white: '█' }.transform_keys(&COLOR)
+
+  def self.painting_estimate
+    paint(COLOR[:black]).size
+  end
+
+  def self.paint_letters
+    painted = paint(COLOR[:white])
+
+    dim_x, dim_y = painted.keys.transpose.map(&:minmax).map { |lo, hi| (lo..hi) }
+    dim_y.map do |y|
+      dim_x.map { |x| PAINT[painted.fetch([x, y], COLOR[:black])] }.join
+    end.join("\n")
+  end
+
+  def self.paint(hull_colorcode, intcode = File.read('input11'))
+    robot = Intcode.new(intcode)
+    coord = Vector[0, 0]
+    facing = [Vector[0, -1], Vector[1, 0], Vector[0, 1], Vector[-1, 0]] # coordinate conversion
+    painted = Hash.new
+
+    while (paintcode = robot.run([hull_colorcode]))
+      painted[coord.to_a] = paintcode
+      coord += facing.rotate!([-1, 1].at(robot.run)).first
+      hull_colorcode = painted.fetch(coord.to_a, COLOR[:black])
+    end
+    painted
+  end
+end
