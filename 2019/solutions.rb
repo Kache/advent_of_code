@@ -389,3 +389,42 @@ module Day12
     end.reduce(:lcm)
   end
 end
+
+module Day13
+  @@input = File.read('input13')
+
+  OBJ = { empty: 0, wall: 1, block: 2, paddle: 3, ball: 4 }
+  TILE = { empty: ' ', wall: '█', block: '□', paddle: '▔', ball: '•' }.transform_keys(&OBJ)
+
+  def self.num_blocks(intcode = @@input.split(',').map(&:to_i))
+    output, game = [], Intcode.new(intcode); nil
+    game.run { |o| output << o }
+    output.each_slice(3).count { |x, y, t| t == OBJ[:block] }
+    output.each_slice(3).map(&:last).each_slice(44).each { |row| puts row.map(&TILE).join }
+  end
+
+  def self.play(intcode = @@input.split(',').map(&:to_i))
+    game = Intcode.new([2, *intcode[1..-1]]) # play for free
+    board = Array.new(20) { Array.new(44) }
+    board[0] << " Score: " << 0
+    input, ball_pos, paddle, started = [], [-1, -1], -1, false
+
+    while (x, y, t = Array.new(3) { game.run(input) }).all?
+      is_score = [x, y] == [-1, 0]
+      if t == OBJ[:paddle]
+        paddle = x
+        input << (ball_pos[0] <=> paddle) if !started
+      elsif t == OBJ[:ball]
+        ball_pos = [x, y]
+        input << (ball_pos[0] <=> paddle) if started
+      elsif [x, y] == ball_pos || (!started && is_score)
+        started = true
+        board.each { |row| puts row.join }
+        sleep 0.001
+      end
+
+      board[y][x] = is_score ? t : TILE[t]
+    end
+    board.each { |row| puts row.join } && board[0][-1]
+  end
+end
