@@ -407,23 +407,20 @@ module Day13
     game = Intcode.new([2, *intcode[1..-1]]) # play for free
     board = Array.new(20) { Array.new(44) }
     board[0] << " Score: " << 0
-    input, ball_pos, paddle, started = [], [-1, -1], -1, false
+    input, ball_pos, paddle = [], [-1, -1], 99
 
     while (x, y, t = Array.new(3) { game.run(input) }).all?
-      is_score = [x, y] == [-1, 0]
       if t == OBJ[:paddle]
         paddle = x
-        input << (ball_pos[0] <=> paddle) if !started
       elsif t == OBJ[:ball]
         ball_pos = [x, y]
-        input << (ball_pos[0] <=> paddle) if started
-      elsif [x, y] == ball_pos || (!started && is_score)
-        started = true
+        input << (ball_pos[0] <=> paddle)
+      elsif [x, y] == ball_pos # frame
         board.each { |row| puts row.join }
-        sleep 0.001
+        sleep 0.05
       end
 
-      board[y][x] = is_score ? t : TILE[t]
+      board[y][x] = x.negative? ? t : TILE[t]
     end
     board.each { |row| puts row.join } && board[0][-1]
   end
