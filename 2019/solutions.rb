@@ -425,3 +425,80 @@ module Day13
     board.each { |row| puts row.join } && board[0][-1]
   end
 end
+
+module Day14
+  @@input = File.read('input14')
+
+  @@test = <<~TEST
+    9 ORE => 2 A
+    8 ORE => 3 B
+    7 ORE => 5 C
+    3 A, 4 B => 1 AB
+    5 B, 7 C => 1 BC
+    4 C, 1 A => 1 CA
+    2 AB, 3 BC, 4 CA => 1 FUEL
+  TEST
+
+  @@test = <<~TEST
+    10 ORE => 10 A
+    1 ORE => 1 B
+    7 A, 1 B => 1 C
+    7 A, 1 C => 1 D
+    7 A, 1 D => 1 E
+    7 A, 1 E => 1 FUEL
+  TEST
+
+  <<~RUN
+    7 A, 1 E
+  RUN
+
+  require 'tsort'
+
+  def self.fuel(input = @@test, fuel = 1)
+    recipes = parse(input)
+
+    graph = recipes.map { |prod, (num, reag)| [prod, reag.map(&:first)] }.to_h
+    graph["ORE"] = []
+
+    graph.singleton_class.class_eval do
+      include TSort
+      alias_method :tsort_each_node, :each_key
+
+      def tsort_each_child(node, &block)
+        fetch(node).each(&block)
+      end
+    end
+
+    req_order = graph.tsort.each_with_index.to_h
+
+
+
+    required = { "FUEL" => fuel }
+
+    until required.keys == ["ORE"]
+      req = required.each_key.max_by { |k| req_order[k] }
+      req_cnt = required.delete(req)
+
+      makes, reageants = recipes.fetch(req)
+      reageants.each do |reag, cnt|
+        required[reag] ||= 0
+        required[reag] += cnt * (req_cnt.to_f / makes).ceil
+      end
+    end
+
+    required["ORE"]
+  end
+
+  # (0..5000000).to_a.bsearch { |n| fuel(@@input, n) > 1_000_000_000_000 }
+
+  def self.parse(input = @@test)
+    input.each_line.map do |line|
+      reageants_str, product = line.split('=>')
+      (prod_cnt, prod), *reageants = [product, *reageants_str.split(',')].map do |ingred|
+        count, name = ingred.split(' ')
+        [count.to_i, name]
+      end
+      [prod, [prod_cnt, reageants.map(&:reverse).to_h]]
+    end.to_h
+  end
+end
