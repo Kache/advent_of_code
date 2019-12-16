@@ -502,3 +502,96 @@ module Day14
     end.to_h
   end
 end
+
+module Day15
+  @@input = File.read('input15')
+
+  DIR = { north: 1, south: 2, west: 3, east: 4 }
+  VEC = { north: Vector[0, -1], south: Vector[0, 1], west: Vector[-1, 0], east: Vector[1, 0] }
+  STATUS = { hit_wall: 0, moved: 1, found_oxy: 2 }.invert
+  OBJ = { empty: ' ', wall: '█', oxy: '□' }
+
+  def self.explore(input = @@input)
+
+    droid = Intcode.new(input); nil
+    world = { [0, 0] => 'O' }
+    map = Hash.new { |h, k| h[k] = Set.new }
+    pos = Vector[0, 0]
+    oxy_pos = nil
+    heading = %i[north east south west]
+    go = lambda do |dir|
+      status = STATUS.fetch(droid.run([DIR.fetch(dir)]))
+      case status
+      when :hit_wall
+        world[(pos + VEC[dir]).to_a] = OBJ[:wall]
+      when :moved
+        map[pos] << pos + VEC[dir]
+        map[pos + VEC[dir]] << pos
+        pos += VEC[dir]
+        world[pos.to_a] = OBJ[:empty]
+      when :found_oxy
+        map[pos] << pos + VEC[dir]
+        map[pos + VEC[dir]] << pos
+        pos += VEC[dir]
+        finish = pos.to_a
+        world[pos.to_a] = OBJ[:oxy]
+      when nil
+        :done
+      end
+      status
+    end
+
+    # path = lambda do |dlist|
+    #   dlist.each do |d|
+    #     10.times { ->(dir) { go[dir]; print(world, pos.to_a) }.call SHORT[d] }
+    #   end
+    # end
+
+    directed = lambda do
+      loop do
+        break if oxy_pos && pos.zero?
+        status = go[heading.first]
+        case status
+        when :hit_wall
+          heading.rotate!
+        when :moved
+          heading.rotate!(-1)
+        when :found_oxy
+          oxy_pos = pos
+          # puts "Found Oxy"
+        #   break
+        # when :done
+        #   break
+        end
+        print(world, pos.to_a)
+      end
+    end
+
+    directed.call
+
+    distances = {}
+    deque = [[Vector[*oxy_pos], 0]]
+    until deque.empty?
+      curr, dist = deque.shift
+      distances[curr] = dist
+
+      neighbors = map[Vector[*curr]]
+      neighbors.reject(&distances).each do |n|
+        deque << [n, dist + 1]
+      end
+    end
+
+    a = distances[Vector[0, 0]] # part 1
+    b = distances.each_value.max # part 2
+    [a, b]
+  end
+
+  def self.print(world, pos)
+    puts
+    dim_x, dim_y = world.keys.transpose.map(&:minmax).map { |lo, hi| (lo..hi) }
+    dim_y.each do |y|
+      puts dim_x.map { |x| pos.to_a == [x, y] ? 'X' : world.fetch([x, y], OBJ[:empty]) }.join
+    end
+    sleep 0.05
+  end
+end
