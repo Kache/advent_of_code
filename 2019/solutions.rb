@@ -595,3 +595,32 @@ module Day15
     sleep 0.05
   end
 end
+
+module Day16
+  @@input = File.read('input16')
+
+  def self.fft(input = @@input.strip)
+    nums, base_pat = input.chars.map(&:to_i), [0, 1, 0, -1]
+
+    100.times do
+      (1..nums.size).map do |nth|
+        nums[nth - 1] = (nth..nums.size).reduce(0) do |sum, n|
+          sum + nums[n - 1] * base_pat[(n / nth) % 4]
+        end.abs % 10
+      end
+    end
+    nums.first(8).join
+  end
+
+  def self.fft_offset(input = @@input.strip)
+    partial, offset = input.chars.map(&:to_i), input[0, 7].to_i
+    full = (partial * 10_000)[offset..-1]
+
+    100.times do
+      (full.size - 2).downto(0) do |i|
+        full[i] = (full[i] + full[i + 1]) % 10
+      end
+    end
+    full.first(8).join
+  end
+end
