@@ -4,7 +4,7 @@ require 'bundler/inline'
 
 gemfile do
   source 'https://rubygems.org'
-  ruby '~> 2.6.3'
+  # ruby '~> 2.6.3'
   gem 'pry-byebug'
   gem 'activesupport'
 end
@@ -624,3 +624,510 @@ module Day16
     full.first(8).join
   end
 end
+
+module Day17
+  @@input = File.read('input17')
+
+  def self.map(input = @@input)
+    robot = Intcode.new(input)
+
+    data = ''
+    data << out while (out = robot.run([]))
+    area = data.strip.split("\n")
+
+    puts area.join("\n")
+
+    scaffold_intersections = (0...area.size).flat_map do |y|
+      (0...area.first.size).map do |x|
+        intersection?(area, x, y) ? [x, y] : nil
+      end.compact
+    end
+
+    scaffold_intersections.map { |x, y| x * y }.sum
+  end
+
+  # ..........................#########................
+  # ..........................#.......#................
+  # ..........................#.......#................
+  # ..........................#.......#................
+  # ......................#########...#................
+  # ......................#...#...#...#................
+  # ......................#...#...#...#................
+  # ......................#...#...#...#................
+  # ......................#.###########................
+  # ......................#.#.#...#....................
+  # ................#####.#.#.#####....................
+  # ................#...#.#.#..........................
+  # ................#...#.#########....................
+  # ................#...#...#.....#....................
+  # ................#...#...#.....#....................
+  # ................#...#...#.....#....................
+  # ................#########.....#....................
+  # ....................#.........#....................
+  # ....................#.........#...#######..........
+  # ....................#.........#...#.....#..........
+  # #########.###########.........#...#.....#..........
+  # #.......#.#...................#...#.....#..........
+  # #.......#.#...................###########..........
+  # #.......#.#.......................#................
+  # #.......#.#.......................#...#########....
+  # #.......#.#.......................#...........#....
+  # #.......#.#.......................#########...#....
+  # #.......#.#...............................#...#....
+  # ###########.............................###########
+  # ........#...............................#.#...#...#
+  # ........###########.....................#.#...#...#
+  # ..................#.....................#.#...#...#
+  # ..................#.....................#######...#
+  # ..................#.......................#.......#
+  # ..................#.......................#.......#
+  # ..................#.......................#.......#
+  # ..................#.......................#########
+  # ..................#................................
+  # ..................#................................
+  # ..................#................................
+  # ..................########^........................
+
+  # ..........................#########................
+  # ..........................#.......#................
+  # ..........................#.......#................
+  # ..........................#.......#................
+  # ......................3########...#................
+  # ......................#...#...#...#................
+  # ......................#...#...#...#................
+  # ......................#...#...#...#................
+  # ......................#.###########................
+  # ......................#.#.#...#....................
+  # ................####2.#.#.#####....................
+  # ................#...#.#.#..........................
+  # ................#...#.#########....................
+  # ................#...#...#.....#....................
+  # ................#...#...#.....#....................
+  # ................#...#...#.....#....................
+  # ................#########.....#....................
+  # ....................#.........#....................
+  # ....................#.........#...#######..........
+  # ....................#.........#...#.....#..........
+  # #########.###########.........#...#.....#..........
+  # #.......#.#...................#...#.....#..........
+  # #.......#.#...................###########..........
+  # #.......#.#.......................#................
+  # #.......#.#.......................#...#########....
+  # #.......#.#.......................#...........#....
+  # #.......#.#.......................#########...#....
+  # #.......#.#...............................#...#....
+  # ###########.............................##########4
+  # ........#...............................#.#...#...#
+  # ........###########.....................#.#...#...#
+  # ..................#.....................#.#...#...#
+  # ..................#.....................#######...#
+  # ..................#.......................#.......#
+  # ..................#.......................#.......#
+  # ..................#.......................#.......#
+  # ..................#.......................#########
+  # ..................#................................
+  # ..................#................................
+  # ..................#................................
+  # ..................########1........................
+
+  # 1: L,8,R,10,L,10,R,10,L,8,L,8,L,10,L,8,R,10,L,10
+  # 2: L,4,L,6,L,8,L,8,R,10,L,8,L,8,L,10,L,4,L,6,L,8
+  # 3: L,8,L,8,R,10,L,10,L,4,L,6,L,8,L,8,R,10,L,8,L,8
+  # 4: L,10,L,4,L,6,L,8,L,8
+
+  # A: L,8,R,10,L,10
+  # B: R,10,L,8,L,8,L,10
+  # C: L,4,L,6,L,8,L,8
+
+  # L,8,R,10,L,10,R,10,L,8,L,8,L,10,L,8,R,10,L,10,L,4,L,6,L,8,L,8,R,10,L,8,L,8,L,10,L,4,L,6,L,8,L,8,L,8,R,10,L,10,L,4,L,6,L,8,L,8,R,10,L,8,L,8,L,10,L,4,L,6,L,8,L,8
+  # A             B                 A             C               B                 C               A             C               B                 C
+  # L,8,R,10,L,10,R,10,L,8,L,8,L,10,L,8,R,10,L,10,               ,R,10,L,8,L,8,L,10,               ,L,8,R,10,L,10,               ,R,10,L,8,L,8,L,10,               
+
+  #              ,R,10,L,8,L,8,L,10,             ,               ,R,10,L,8,L,8,L,10,               ,             ,               ,R,10,L,8,L,8,L,10,               
+
+  #              ,                 ,             ,               ,                 ,               ,             ,               ,                 ,               
+
+  def self.notify(input = @@input)
+    robot = Intcode.new([2, *input.split(',').map(&:to_i)[1..-1]]); nil
+
+    # movement routine: 'A,A,B,C'
+    # movement functions (max 20 chars): '10,L,8,R,6'
+    # view video feed?: 'y'/'n'
+    instr = <<~INSTR
+      A,B,A,C,B,C,A,C,B,C
+      L,8,R,10,L,10
+      R,10,L,8,L,8,L,10
+      L,4,L,6,L,8,L,8
+      n
+    INSTR
+
+    ascii = instr.chars.map(&:ord); nil
+    last_chr = nil
+    out = nil
+    loop do
+      out = robot.run(ascii)
+      break if out.nil? || out > 255
+      print out.chr
+      sleep 0.5 if out.chr == "\n" && last_chr == "\n"
+      last_chr = out.chr
+    end
+    puts out
+  end
+
+  def self.intersection?(area, x, y)
+    y.between?(1, area.size - 2) &&
+      x.between?(1, area.first.size - 2) &&
+      area[y][x] == '#' &&
+      area[y + 1][x] == '#' &&
+      area[y - 1][x] == '#' &&
+      area[y][x + 1] == '#' &&
+      area[y][x - 1] == '#'
+  end
+end
+
+class PriorityQueue
+  def initialize(&block)
+    @elements = [nil]
+    @comp = block
+  end
+
+  def size
+    @elements.size - 1
+  end
+
+  def empty?
+    @elements.size == 1
+  end
+
+  def <<(element)
+    @elements << element
+    # bubble up the element that we just added
+    bubble_up(@elements.size - 1)
+  end
+
+  def bubble_up(index)
+    parent_index = (index / 2)
+
+    # return if we reach the root element
+    return if index <= 1
+
+    # or if the parent is already greater than the child
+    return if @comp.call(@elements[parent_index]) >= @comp.call(@elements[index])
+
+    # otherwise we exchange the child with the parent
+    exchange(index, parent_index)
+
+    # and keep bubbling up
+    bubble_up(parent_index)
+  end
+
+  def exchange(source, target)
+    @elements[source], @elements[target] = @elements[target], @elements[source]
+  end
+
+  def pop
+    # exchange the root with the last element
+    exchange(1, @elements.size - 1)
+
+    # remove the last element of the list
+    max = @elements.pop
+
+    # and make sure the tree is ordered again
+    bubble_down(1)
+    max
+  end
+
+  def bubble_down(index)
+    child_index = (index * 2)
+
+    # stop if we reach the bottom of the tree
+    return if child_index > @elements.size - 1
+
+    # make sure we get the largest child
+    not_the_last_element = child_index < @elements.size - 1
+    left_element = @elements[child_index]
+    right_element = @elements[child_index + 1]
+    child_index += 1 if not_the_last_element && @comp[right_element] > @comp[left_element]
+
+    # there is no need to continue if the parent element is already bigger
+    # then its children
+    return if @comp[@elements[index]] >= @comp[@elements[child_index]]
+
+    exchange(index, child_index)
+
+    # repeat the process until we reach a point where the parent
+    # is larger than its children
+    bubble_down(child_index)
+  end
+end
+
+module Day18
+  input = @@input = File.read('input18')
+
+  OBJ = {
+    entrance: '@',
+    empty: '.',
+    wall: '#',
+    # key a opens door A
+    # key b opens door B
+  }
+  KEY = 'a'..'z'
+  DOOR = 'A'..'Z'
+
+  @@input = <<~INPUT
+    ########################
+    #f.D.E.e.C.b.A.@.a.B.c.#
+    ######################.#
+    #d.....................#
+    ########################
+  INPUT
+
+  input = @@input = <<~INPUT
+    #################
+    #i.G..c...e..H.p#
+    ########.########
+    #j.A..b...f..D.o#
+    ########@########
+    #k.E..a...g..B.n#
+    ########.########
+    #l.F..d...h..C.m#
+    #################
+  INPUT
+
+  @@input = <<~INPUT
+    ########################
+    #@..............ac.GI.b#
+    ###d#e#f################
+    ###A#B#C################
+    ###g#h#i################
+    ########################
+  INPUT
+
+  def self.shortest_keypath(input = @@input)
+
+    locs = {}
+    door_locs = {}
+    graph = Hash.new { |h, k| h[k] = Set.new }
+
+    maze = input.each_line.map(&:strip); nil
+
+    maze.each_with_index do |line, y|
+      next if y == 0 || y == maze.size - 1
+      line.each_char.with_index do |c, x|
+        next if x == 0 || x == line.size - 1
+        next if c == OBJ[:wall]
+
+        surrounding = [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]
+        surrounding.reject { |x, y| maze[y][x] == OBJ[:wall] }.inject(graph[[x, y]], :<<)
+
+        locs[c] = [x, y] if KEY === c || c == OBJ[:entrance]
+        door_locs[[x, y]] = c if DOOR === c
+      end
+    end; nil
+
+    objs = locs.invert
+    until (dead_ends = graph.each_key.select { |k| graph[k].one? && !objs.include?(k) }).empty?
+      dead_ends.each do |k|
+        graph[graph[k].first].delete(k)
+        graph.delete(k)
+      end
+    end
+
+    reachability = Hash.new { |h, k| h[k] = {} }
+    puts Benchmark.realtime {
+      combos = locs.keys.combination(2).group_by(&:shift).transform_values { |a| a.to_set { |(e)| e } }
+      combos.each do |from, targets|
+        visited = Set.new
+        queue = [[locs[from], 0, []]]
+
+        puts Benchmark.realtime {
+          until queue.empty? || reachability[from].size == locs.size - 1
+            curr, dist, doors = queue.shift
+            visited << curr
+
+            obj = maze[curr.last][curr.first]
+            doors << obj.downcase if door_locs[curr]
+            if targets.include?(obj)
+              reachability[from][obj] = reachability[obj][from] = [dist, doors.to_set]
+            end
+
+            (graph[curr] - visited).each do |loc|
+              queue << [loc, dist + 1, doors.dup]
+            end
+          end
+        }
+      end
+    }
+
+    puts Benchmark.realtime {
+      state = ['@', Set['@']]
+      states = { state => 0 }
+      queue = PriorityQueue.new { |state| -states[state] }
+      queue << state
+      until queue.empty?
+        state = queue.pop
+        curr, keys = state
+
+        reachable_keys = reachability[curr].select do |key, (step, req_doors)|
+          !keys.include?(key) && keys.superset?(req_doors)
+        end
+
+        reachable_keys.each do |key, (step, req_doors)|
+          new_state = [key, keys.dup << key]
+          if states[state] + step < states.fetch(new_state, Float::INFINITY)
+            states[new_state] = states[state] + step
+            queue << new_state
+          end
+        end
+      end
+    }
+    states.select { |(n, k), d| k.size == locs.size }.sort_by(&:last)
+
+    min_dist = Float::INFINITY
+    path = nil
+    queue = [['@', 0, ['@']]]
+    start, i, logs = Time.now, 0, 0
+    until queue.empty?
+      i += 1
+      if Time.now - start - logs > 1
+        logs += 1
+        puts "#{i.to_s.rjust(10)} #{queue.last.inspect}"
+      end
+
+      curr, dist, keys = queue.pop
+
+      if keys.size == locs.size && dist < min_dist
+        min_dist = dist
+        path = keys
+        puts "#{dist} #{keys.inspect}"
+      end
+
+      reachable_keys = reachability[curr].select do |key, (step, req_doors)|
+        !keys.include?(key) && (req_doors - keys).empty?
+      end.sort_by { |key, (step, req_doors)| step }
+
+      reachable_keys.each do |key, (step, req_doors)|
+        next if dist + step > min_dist
+        queue << [key, dist + step, keys.dup << key]
+      end
+    end
+
+    final_path = nil
+    min_dist = Float::INFINITY
+    stack = [[['@'], 0]]
+    start, i, logs = Time.now, 0, 0
+
+    until stack.empty?
+      i += 1
+      if Time.now - start - logs > 1
+        logs += 1
+        puts "#{i.to_s.rjust(10)} #{stack.last.inspect}"
+      end
+
+      path, total_dist = stack.pop
+      curr = path.last
+
+      if path.size == locs.size && total_dist < min_dist
+        final_path = path
+        min_dist = total_dist
+      end
+
+      path_set = path.to_set
+      reachable_keys = reachability[curr].select do |key, (dist, req_doors)|
+        !path_set.include?(key) && path_set.superset?(req_doors)
+      end
+
+      reachable_keys.each do |key, (dist, _)|
+        stack << [path.dup << key, total_dist + dist] if total_dist + dist < min_dist
+      end
+    end
+
+
+    require 'tsort'
+    graph.extend(TSort); nil
+    graph.singleton_class.class_eval do
+      alias tsort_each_node each_key
+      def tsort_each_child(node, &block)
+        fetch(node).each(&block)
+      end
+    end
+
+    # path_queue = [[Set['@'], '@', 0]]
+
+    # until path_queue.first.first.size == locs.size
+    #   path, curr, total_dist = path_queue.shift
+
+    #   reachable = reachables(maze, graph, locs[curr], path)
+    #   reachable.each do |key, dist|
+    #     added_path = path.dup << key
+    #     path_queue << [added_path, key, total_dist + dist]
+    #   end
+    # end
+    # path_queue.min_by(&:last)
+
+    top_trie = { '@' => [0, 0] }
+    path_candidate = []
+    trie_queue = [top_trie]
+    min_path, min_dist = nil, Float::INFINITY
+
+    until trie_queue.empty?
+      trie = trie_queue.pop
+
+      curr, (depth, agg_dist) = trie.first
+
+      if depth == locs.size - 1 && agg_dist < min_dist
+        min_dist = agg_dist
+        min_path = path_candidate
+      end
+
+      path_candidate.pop until path_candidate.size <= depth
+
+      if path_candidate.size < locs.size - 1
+        path_candidate << curr
+        reachable = reachables(maze, graph, locs[curr], path_candidate)
+        trie[curr] = []
+        reachable.each do |key, dist|
+          if agg_dist + dist > min_dist
+            trie.delete(curr)
+            next
+          end
+          sub_trie = { key => [depth + 1, agg_dist + dist] }
+          trie[curr] << sub_trie
+          trie_queue << sub_trie
+        end
+      end
+    end
+    [min_path, min_dist]
+
+    top_trie
+    path_candidate
+    path_candidate.size == locs.size - 1
+
+  end
+
+  def self.reachables(maze, graph, pos, inventory)
+    reachables = {}
+    # puts Benchmark.realtime {
+      queue = [[pos, 0]]
+
+      visited = Set.new
+      until queue.empty?
+        curr, dist = queue.shift
+
+        visited << curr
+        obj = maze[curr.last][curr.first]
+        reachables[obj] = dist if KEY === obj && !inventory.include?(obj)
+
+        (graph[curr] - visited).each do |n|
+          obj = maze[n.last][n.first]
+          queue << [n, dist + 1] if !(DOOR === obj) || inventory.include?(obj.downcase)
+        end
+      end
+    # }
+
+    reachables
+  end
+end
+
+
+
