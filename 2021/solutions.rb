@@ -6,12 +6,12 @@ gemfile do
   source 'https://rubygems.org'
   ruby '~> 3.0.2'
   gem 'pry-byebug'
-  gem 'activesupport'
+  gem 'activesupport', require: 'active_support/core_ext/enumerable'
+  gem 'priority_queue_cxx', require: 'fc'
 end
 
 require 'net/http'
 require 'matrix'
-require 'active_support/core_ext/enumerable'
 
 module Input
   def self.rows(day, sep = $/)
@@ -29,6 +29,54 @@ module Input
     uri = URI("https://adventofcode.com/#{year}/day/#{day}/input")
     headers = { Cookie: 'session=' + ENV.fetch('AOC_SESSION')}
     Net::HTTP.get(uri, headers).tap { File.write(fname, _1) }
+  end
+end
+
+module Day15
+  def self.min_risk_small
+    min_risk(risk_map)
+  end
+
+  def self.min_risk_full
+    risk_map_5x5 = (0...5).flat_map do |y|
+      risk_map.map do |row|
+        (0...5).flat_map do |x|
+          row.map { |risk| ((risk - 1 + y + x) % 9) + 1 } # +1 to all, rolls 9 over to 1
+        end
+      end
+    end
+
+    min_risk(risk_map_5x5)
+  end
+
+  def self.risk_map
+    Input.rows(15).map { _1.split('').map(&:to_i) }
+  end
+
+  def self.min_risk(map)
+    max_j, max_i = map.size - 1, map.first.size - 1
+
+    neighbors = lambda do |(j, i)|
+      adj = [[j + 1, i], [j - 1, i], [j, i + 1], [j, i - 1]]
+      adj.select { (0..max_j).cover?(_1) && (0..max_i).cover?(_2) }
+    end
+
+    dijkstra_dist(neighbors, start: [0, 0], goal: [max_j, max_i]) { |_, (j, i)| map[j][i] }
+  end
+
+  def self.dijkstra_dist(neighbors, start:, goal:)
+    dists = { start => 0 }
+    pqueue = FastContainers::PriorityQueue.new(:min).push(start, 0)
+
+    until (curr = pqueue.pop) == goal
+      closer_neighbors = neighbors[curr]
+        .index_with { |n| dists[curr] + (yield curr, n) }
+        .select { |n, dist| dist < dists.fetch(n, Float::INFINITY) }
+
+      closer_neighbors.each { |n, dist| pqueue.push(n, dists[n] = dist) }
+    end
+
+    dists[goal]
   end
 end
 
