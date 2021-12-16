@@ -32,6 +32,58 @@ module Input
   end
 end
 
+module Day16
+  def self.version_nums_sum(packet = Packet.from(input))
+    packet.type == :lit ? packet.ver : packet.ver + packet.val.sum { version_nums_sum(_1) }
+  end
+
+  def self.evaluate
+    Packet.from(input).eval
+  end
+
+  def self.input
+    Input.rows(16).first.prepend('1').to_i(16).to_s(2)[1..]
+  end
+
+  refine String do
+    define_method(:take!) { slice!(0, _1) }
+  end
+
+  Packet = Struct.new(:ver, :type, :val) do
+    TYPE = { sum: 0, mul: 1, min: 2, max: 3, lit: 4, gt: 5, lt: 6, eq: 7 }.invert
+    using Day16
+
+    def self.from(bits)
+      pack = new(bits.take!(3).to_i(2), TYPE[bits.take!(3).to_i(2)])
+
+      if pack.type == :lit
+        (chunks ||= []) << bits.take!(5) until chunks&.last&.start_with?('0')
+        pack.val = chunks.map { _1[1..] }.join.to_i(2)
+      elsif bits.take!(1).to_i.zero?
+        sub_bits = bits.take!(bits.take!(15).to_i(2))
+        (pack.val ||= []) << from(sub_bits) until sub_bits.empty?
+      else
+        pack.val = Array.new(bits.take!(11).to_i(2)) { from(bits) }
+      end
+
+      pack
+    end
+
+    def eval
+      case type
+      when :sum then val.sum(&:eval)
+      when :mul then val.map(&:eval).inject(:*)
+      when :min then val.map(&:eval).min
+      when :max then val.map(&:eval).max
+      when :lit then val
+      when :gt  then val.map(&:eval).inject(:>)  ? 1 : 0
+      when :lt  then val.map(&:eval).inject(:<)  ? 1 : 0
+      when :eq  then val.map(&:eval).inject(:==) ? 1 : 0
+      end
+    end
+  end
+end
+
 module Day15
   def self.min_risk_small
     min_risk(risk_map)
