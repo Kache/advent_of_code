@@ -32,6 +32,90 @@ module Input
   end
 end
 
+module Day17
+  def self.max_y
+    vel = all_velocities.max_by { |v| v[1] }
+    launch(vel, display: true).map { |v| v[1] }.max
+  end
+
+  def self.num_velocities
+    all_velocities(display: true).size
+  end
+
+  def self.all_velocities(display: false)
+    queue, solutions, attempted = target.dup, Set.new, Set.new
+
+    until queue.empty?
+      curr = queue.first.tap { queue.delete(_1) }
+      _start, vel, *flight = path = launch(curr)
+
+      attempted << vel
+      next unless target.member?(path.last)
+      solutions << vel
+
+      nearby_vels = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]].map { vel + Vector[_1, _2] }
+      lob_higher = vel * (path.size - 1) / path.size.to_f + Vector[1, flight.size]
+      [*nearby_vels, lob_higher.map(&:to_i)].reject { attempted.member?(_1) }.inject(queue, :<<)
+    end
+
+    display_searchspace(attempted, solutions) if display
+    solutions
+  end
+
+  def self.launch(vel, display: false)
+    _, x_max, y_min, _ = input
+    path = [Vector[0, 0]]
+
+    until target.member?(path.last) || path.last[0] > x_max || path.last[1] < y_min
+      path << path.last.dup + vel
+      vel -= Vector[vel[0] <=> 0, 1]
+    end
+
+    display(path) if display
+    path
+  end
+
+  def self.display(path)
+    path = path.to_set
+    print_grid(path | target, max_y: 3) do |pt|
+      pt == path.first     ? 'S' :
+        path.member?(pt)   ? '#' :
+        target.member?(pt) ? 'T' :
+                             '.'
+    end
+  end
+
+  def self.display_searchspace(attempted, solutions)
+    print_grid(attempted) do |pt|
+      solutions.member?(pt)   ? '#' :
+        attempted.member?(pt) ? '.' :
+                                ' '
+    end
+    puts "attempted: #{attempted.size}"
+  end
+
+  def self.print_grid(points, max_y: Float::INFINITY)
+    y_min, y_max = points.map { _1[1] }.minmax
+    x_min, x_max = points.map { _1[0] }.minmax
+
+    ([y_max, max_y].min..y_min).step(-1).each do |y|
+      (x_min..x_max).each { |x| print yield Vector[x, y] }
+      puts
+    end
+  end
+
+  def self.target
+    @target ||= begin
+      x0, x1, y0, y1 = input
+      (x0..x1).to_a.product((y0..y1).to_a).to_set { Vector[_1, _2] }
+    end
+  end
+
+  def self.input
+    @input ||= /target area: x=(-?\d+)..(-?\d+), y=(-?\d+)..(-?\d+)/.match(Input.raw(17)).captures.map(&:to_i)
+  end
+end
+
 module Day16
   def self.version_nums_sum(packet = Packet.from(input))
     packet.type == :lit ? packet.ver : packet.ver + packet.val.sum { version_nums_sum(_1) }
