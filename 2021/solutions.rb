@@ -32,6 +32,65 @@ module Input
   end
 end
 
+module Day18
+  def self.mag_final_sum
+    mag(snums.inject { add_snum(_1, _2) })
+  end
+
+  def self.two_sum_mag_max
+    snums.permutation(2).map { mag(add_snum(*_1)) }.max
+  end
+
+  def self.snums
+    Input.raw(18).each_char.with_object([[]]) do |c, stack|
+      case c
+      when '['      then stack << []
+      when '0'..'9' then stack.last << c.to_i
+      when ']'      then stack[-2] << stack.pop
+      end
+    end.pop
+  end
+
+  def self.add_snum(a, b)
+    exploded, _ = explode([a, b])
+    return add_snum(*exploded) if [a, b] != exploded
+    splitted = split(exploded)
+    return add_snum(*splitted) if [a, b] != splitted
+    splitted
+  end
+
+  LEFT = 0; RIGHT = 1
+
+  def self.explode(snum, depth = 0, dir = nil)
+    return 0, snum if depth == 4
+    return explode(snum, depth, LEFT) || explode(snum, depth, RIGHT) || [snum, nil] if dir.nil?
+
+    a, b = snum.rotate(dir)
+    new_a, explosion = explode(a, depth + 1) if a.is_a?(Array)
+    exp_a, exp_b = explosion.rotate(dir) if explosion
+    new_b = exp_b ? explode_into(b, exp_b, dir) : b
+    return [new_a, new_b].rotate(dir), [exp_a, nil].rotate(dir) if new_a && new_a != a
+  end
+
+  def self.explode_into(snum, exp_val, dir)
+    return snum + exp_val unless snum.is_a?(Array)
+    elem_hit, other = snum.rotate(dir)
+    [explode_into(elem_hit, exp_val, dir), other].rotate(dir)
+  end
+
+  def self.split(snum, dir = nil)
+    return split(snum, LEFT) || split(snum, RIGHT) || snum if dir.nil?
+
+    s, other = snum.rotate(dir)
+    split = s.is_a?(Array) ? split(s) : s > 9 && [s / 2, (s + 1) / 2]
+    return [split, other].rotate(dir) if split && !split.equal?(s)
+  end
+
+  def self.mag(snum)
+    snum.is_a?(Array) ? 3 * mag(snum[0]) + 2 * mag(snum[1]) : snum
+  end
+end
+
 module Day17
   def self.max_y
     vel = all_velocities.max_by { |v| v[1] }
