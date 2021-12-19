@@ -32,6 +32,84 @@ module Input
   end
 end
 
+module Day19
+  def self.num_beacons
+    oriented_scanners.values.inject(&:union).size
+  end
+
+  def self.manhattan_diameter
+    oriented_scanners.keys.map(&:pos).combination(2).map { |a, b| (a - b).sum(&:abs) }.max
+  end
+
+  ROT = %i[x y z].index_with.with_index do |_, i|
+    signs = [1, -1, 1].rotate(-i)
+    rows = [Vector[1, 0, 0], Vector[0, 0, 1], Vector[0, 1, 0]].rotate(i)
+    Matrix[*signs.zip(rows).map { _1 * _2 }]
+  end
+
+  ROT24 = {
+    ROT[:z]**0 => :x, ROT[:z]**1 => :y, ROT[:y]**1 => :z,
+    ROT[:z]**2 => :x, ROT[:z]**3 => :y, ROT[:y]**3 => :z,
+  }.flat_map { |heading, roll| (0..3).map { heading * ROT[roll]**_1 } }
+
+  FrameOfRef = Struct.new('FrameOfRef', :rot, :pos) do
+    def self.frame_for(rot, refs, vecs)
+      matches = refs[0] - refs[1] == rot * (vecs[0] - vecs[1])
+      # i.e. FrameOfRef.new(rot, refs[0] - rot * vecs[0]) == FrameOfRef.new(rot, refs[1] - rot * vecs[1])
+      # i.e. FrameOfRef.new(rot, refs[0] - rot * vecs[0]).interpret(vecs[1]) == refs[1]
+      FrameOfRef.new(rot, refs[0] - rot * vecs[0]) if matches
+    end
+
+    def interpret(relative_vector)
+      rot * relative_vector + pos
+    end
+
+    def normalize(rel_frame)
+      FrameOfRef.new(rot * rel_frame.rot, interpret(rel_frame.pos))
+    end
+  end
+
+  def self.oriented_scanners
+    @oriented_scanners ||= begin
+      coord_dists = scanners.transform_values do |coords|
+        coords.combination(2).group_by { |a, b| (a - b).sum { _1**2 } }
+      end
+
+      pair_matches = coord_dists.keys.permutation(2).index_with do |a, b|
+        coord_dists[a].flat_map do |dist, a_pairs|
+          b_pairs = coord_dists[b].fetch(dist, [])
+          a_pairs.product(b_pairs)
+        end
+      end.sort_by { -_2.size }.to_h
+
+      ref_frames = { 0 => FrameOfRef.new(Matrix.identity(3), Vector.zero(3)) }
+
+      while (pairing = pair_matches.detect { |(a, b), _| ref_frames.key?(a) && !ref_frames.key?(b) })
+        (ref, rel), matching_coord_pairs = pairing
+
+        possible_frames = matching_coord_pairs.map do |refs, vecs|
+          ROT24.lazy.map do |rot|
+            FrameOfRef.frame_for(rot, refs, vecs) || FrameOfRef.frame_for(rot, refs, vecs.reverse)
+          end.detect(&:itself)
+        end.compact
+
+        matching_rel_frame, _ = possible_frames.tally.sort_by(&:last).last
+        ref_frames[rel] = ref_frames[ref].normalize(matching_rel_frame)
+      end
+
+      scanners.each_with_object({}) do |(i, coords), oriented|
+        oriented[ref_frames[i]] = coords.to_set { ref_frames[i].interpret(_1) }
+      end
+    end
+  end
+
+  def self.scanners
+    @scanners ||= Input.raw(19).split("\n\n").map { _1.split("\n") }.map do |name, *coords|
+      coords.map { Vector[*_1.split(',').map(&:to_i)] }
+    end.each.with_index.to_h.invert
+  end
+end
+
 module Day18
   def self.mag_final_sum
     mag(snums.inject { add_snum(_1, _2) })
