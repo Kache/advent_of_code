@@ -32,6 +32,52 @@ module Input
   end
 end
 
+module Day20
+  def self.num_lit_pixels_2
+    enhance(2).size
+  end
+
+  def self.num_lit_pixels_50
+    enhance(50).size
+  end
+
+  KERNEL = [1, 0, -1].product([1, 0, -1]).each_with_index # perf: vs inline
+  EXP2 = [1, 2, 4, 8, 16, 32, 64, 128, 256] # perf: vs 2**e
+
+  def self.enhance(num)
+    outside_val = 0
+    pix_map, pixels, max = input
+
+    num.times.with_index(1) do |i, n|
+      new_range = (-n..max + n).to_a
+      pixels = new_range.product(new_range).to_set do |y, x|
+
+        val = 0 # perf: vs sum {}
+        KERNEL.each do |(u, v), e|
+          u, v = y + u, x + v
+          outside = u < -i || max + i < u || v < -i || max + i < v # perf: vs !range.cover?()
+          val += EXP2[e] if pixels.member?([u, v]) || (outside && outside_val == 1)
+        end
+
+        [y, x] if pix_map[val] == '#'
+      end.delete(nil)
+
+      outside_val = pix_map[-outside_val] == '#' ? 1 : 0
+    end
+
+    pixels
+  end
+
+  def self.input
+    pix_map, _, *image = Input.rows(20)
+    pixels = image.each.with_index.with_object(Set.new) do |(line, j), s|
+      line.each_char.with_index { |c, i| s << [j, i] if c == '#' }
+    end
+
+    [pix_map, pixels, image.size - 1]
+  end
+end
+
 module Day19
   def self.num_beacons
     oriented_scanners.values.inject(&:union).size
