@@ -6,7 +6,7 @@ gemfile do
   source 'https://rubygems.org'
   ruby '~> 3.0.2'
   gem 'pry-byebug'
-  gem 'activesupport', require: 'active_support/core_ext/enumerable'
+  gem 'activesupport', require: ['active_support/core_ext/enumerable', 'active_support/core_ext/object/blank']
   gem 'priority_queue_cxx', require: 'fc'
 end
 
@@ -29,6 +29,44 @@ module Input
     uri = URI("https://adventofcode.com/#{year}/day/#{day}/input")
     headers = { Cookie: 'session=' + ENV.fetch('AOC_SESSION')}
     Net::HTTP.get(uri, headers).tap { File.write(fname, _1) }
+  end
+end
+
+module Day21
+  def self.det_dice
+    players = Input.rows(21).map { { pos: _1.split.last.to_i, score: 0 } }.cycle
+    det_dice = (1..100).cycle
+
+    winner, loser, turns = (1..).each do |turns|
+      player = players.next
+      roll = 3.times.sum { det_dice.next }
+      player[:pos] = ((player[:pos] - 1 + roll) % 10) + 1
+      player[:score] += player[:pos]
+      break player, players.next, turns if player[:score] >= 1_000
+    end
+
+    loser[:score] * turns * 3
+  end
+
+  def self.quantum_dice
+    players = Input.rows(21).map { [_1.split.last.to_i, 0] }
+    wins_losses(*players).max
+  end
+
+  QUANTUM_DICE_ROLLS = [1, 2, 3].then { |d| d.product(d, d).map(&:sum) }
+
+  def self.wins_losses(*players)
+    (@wins_losses ||= {})[players] ||= begin
+      (pos, score), other_player = players
+
+      new_positions = QUANTUM_DICE_ROLLS.map { ((pos - 1 + _1) % 10) + 1 }
+      wins, cont_play = new_positions.map { [_1, score + _1] }.partition { _2 >= 21 }
+
+      losses_wins = cont_play.map { wins_losses(other_player, _1) }
+      losses, future_wins = losses_wins.sum(&:first), losses_wins.sum(&:last)
+
+      [wins.size + future_wins, losses]
+    end
   end
 end
 
