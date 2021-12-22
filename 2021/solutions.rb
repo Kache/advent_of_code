@@ -32,6 +32,56 @@ module Input
   end
 end
 
+module Day22
+  def self.num_init_cubes
+    init_ranges = merged_cubes.map { _1.values.map { |d| [d.min, -50].max..[50, d.max].min } }
+    init_ranges.sum { Cube.new(*_1).size }
+  end
+
+  def self.num_reboot_cubes
+    merged_cubes.sum(&:size)
+  end
+
+  def self.merged_cubes
+    input = Input.raw(22).scan(/(on|off) x=(.*),y=(.*),z=(.*)/).map do |bit, *dims|
+      ranges = dims.map { |d| d.split('..').map(&:to_i).then { _1.._2 } }
+      [Cube.new(*ranges), bit]
+    end.to_h
+
+    input.reduce([]) do |cubes, (cube, bit)|
+      diffs = cubes.flat_map { _1 - cube }
+      bit == 'on' ? diffs << cube : diffs
+    end
+  end
+
+  Cube = Struct.new(:x, :y, :z) do
+    def size
+      values.map(&:size).inject(:*)
+    end
+
+    def intersection(cube)
+      return nil if values.zip(cube.values).any? { |a, b| a.min > b.max || a.max < b.min }
+
+      bounds = values.zip(cube.values).flat_map do |a, b|
+        [a.min, b.min].max..[a.max, b.max].min
+      end
+      Cube.new(*bounds)
+    end
+
+    def -(cube)
+      return [self] unless (intr = intersection(cube))
+      [
+        Cube.new(x, y, z.min..intr.z.min - 1),
+        Cube.new(x, y, intr.z.max + 1..z.max),
+        Cube.new(x.min..intr.x.min - 1, y, intr.z),
+        Cube.new(intr.x.max + 1..x.max, y, intr.z),
+        Cube.new(intr.x, y.min..intr.y.min - 1, intr.z),
+        Cube.new(intr.x, intr.y.max + 1..y.max, intr.z),
+      ].reject { _1.size.zero? }
+    end
+  end
+end
+
 module Day21
   def self.det_dice
     players = Input.rows(21).map { { pos: _1.split.last.to_i, score: 0 } }.cycle
