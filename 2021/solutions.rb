@@ -32,6 +32,71 @@ module Input
   end
 end
 
+module Day23
+  def self.min_energy
+    hall.cost
+  end
+
+  def self.min_energy2
+    hall(extra_rows: ['  #D#C#B#A#', '  #D#B#A#C#']).cost
+  end
+
+  ROOMS = { 2 => :a, 4 => :b, 6 => :c, 8 => :d }
+  COSTS = { a: 1, b: 10, c: 100, d: 1000 }
+
+  class Hall < Array
+    attr_accessor :roomsize
+
+    def cost
+      (@@cost ||= {})[self] ||= begin
+        halls_clear = [0, 1, 3, 5, 7, 9, 10].all? { |i| self[i].nil? }
+        rooms_done = ROOMS.all? { |i, l| self[i].all? { _1 == l } }
+
+        halls_clear && rooms_done ? 0 : moves.map { movecost(*_1) }.min || Float::INFINITY
+      end
+    end
+
+    def moves
+      return enum_for(:moves) unless block_given?
+
+      ROOMS.keys.product([0, 1, 3, 5, 7, 9, 10]) do |r, i|
+        lo, hi = [r, i].minmax
+        next unless path_clear = (lo + 1...hi).all? { ROOMS.key?(_1) || self[_1].nil? }
+
+        val, room, ltr = self[i], self[r], ROOMS[r]
+        yield [r, i, :hall] if val.nil? && room.any? { _1 != ltr }   # from room to hall
+        yield [r, i, :room] if val == ltr && room.all? { _1 == ltr } # from hall to room
+      end
+    end
+
+    def movecost(r, i, dst)
+      new_hall = dup
+      new_hall[r] = new_room = self[r].dup
+
+      moved_val, room_dist = if dst == :hall
+        new_hall[i] = new_room.pop
+        [new_hall[i], roomsize - new_room.size]
+      elsif dst == :room
+        new_room << new_hall[i]
+        new_hall[i] = nil
+        [new_room.last, roomsize - self[r].size]
+      end
+
+      onemove_cost = COSTS[moved_val] * ((r - i).abs + room_dist)
+      onemove_cost + new_hall.cost
+    end
+  end
+
+  def self.hall(extra_rows: [])
+    row1, row2 = Input.rows(23)[2..3]
+    room_rows = [row1, *extra_rows, row2].map { _1[1..] }
+    h = Hall.new(11).tap { _1.roomsize = room_rows.size }
+    ROOMS.each_key.with_object(h) do |r, h|
+      h[r] = room_rows.map { _1[r].downcase.to_sym }.reverse
+    end
+  end
+end
+
 module Day22
   def self.num_init_cubes
     init_ranges = merged_cubes.map { _1.values.map { |d| [d.min, -50].max..[50, d.max].min } }
