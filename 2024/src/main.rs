@@ -8,6 +8,7 @@
 
 // use std::error::Error;
 // use std::{clone, fs::read_to_string};
+use itertools::iproduct;
 use itertools::Itertools;
 use std::fs::read_to_string;
 
@@ -32,7 +33,106 @@ fn main() {
 
     // _day2();
 
-    _day3();
+    // _day3();
+
+    _day4();
+}
+
+fn _day4() {
+    let inputs = [
+        "XMAS\n".to_string(),
+        "..X...\n\
+         .SAMX.\n\
+         .A..A.\n\
+         XMAS.S\n\
+         .X....\n"
+            .to_string(),
+        "MMMSXXMASM\n\
+         MSAMXMSMSA\n\
+         AMXSXMAAMM\n\
+         MSAMASMSMX\n\
+         XMASAMXAMM\n\
+         XXAMMXXAMA\n\
+         SMSMSASXSS\n\
+         SAXAMASAAA\n\
+         MAMMMXMMMM\n\
+         MXMXAXMASX\n"
+            .to_string(),
+        "M.S\n\
+         .A.\n\
+         M.S\n"
+            .to_string(),
+        ".M.S......\n\
+         ..A..MSMS.\n\
+         .M.S.MAA..\n\
+         ..A.ASMSM.\n\
+         .M.S.M....\n\
+         ..........\n\
+         S.S.S.S.S.\n\
+         .A.A.A.A..\n\
+         M.M.M.M.M.\n\
+         ..........\n"
+            .to_string(),
+        read_to_string("input04").unwrap(),
+    ];
+
+    let input = inputs[5].clone();
+
+    fn scan(grid: &Vec<Vec<char>>, word: &str, j: i32, i: i32, dir: (i32, i32)) -> i32 {
+        let bounds = (
+            0..grid.len() as i32,
+            0..grid.first().map_or(0, |row| row.len() as i32),
+        );
+
+        if !bounds.0.contains(&j) || !bounds.1.contains(&i) {
+            return 0;
+        }
+
+        let c = grid[j as usize][i as usize];
+
+        if !word.starts_with(&c.to_string()) {
+            return 0;
+        } else if word.len() == 1 {
+            return 1;
+        }
+
+        // println!("{:#?}", (word, j, i, dj, di));
+
+        let (dj, di) = dir;
+        scan(grid, &word[1..], j + dj, i + di, dir)
+    }
+
+    let chars: Vec<Vec<char>> = input.lines().map(|line| line.chars().collect()).collect();
+    let height = chars.len() as i32;
+    let width = chars.first().map_or(0, |row| row.len() as i32);
+    let num_xmas: i32 = iproduct!(0..height, 0..width)
+        .map(|(j, i)| {
+            iproduct!(-1..=1, -1..=1)
+                .map(|dir| scan(&chars, "XMAS", j, i, dir))
+                .sum::<i32>()
+        })
+        .sum();
+
+    // println!("{:#?}", grid);
+    println!("{:#?}", num_xmas);
+
+    fn rotated(mut coords: [(i32, i32); 4], n: usize) -> [(i32, i32); 4] {
+        coords.rotate_right(n);
+        coords
+    }
+
+    let deltas = [(-1, -1), (-1, 1), (1, 1), (1, -1)];
+    let num_x_mas: i32 = iproduct!(1..height - 1, 1..width - 1)
+        .filter(|(j, i)| chars[*j as usize][*i as usize] == 'A')
+        .flat_map(|(j, i)| (0..4).map(move |n| rotated(deltas.map(|(dj, di)| (j + dj, i + di)), n)))
+        .filter(|rot_coords| {
+            rot_coords
+                .iter()
+                .zip("MMSS".chars())
+                .all(|((j, i), c)| chars[*j as usize][*i as usize] == c)
+        })
+        .count() as i32;
+    println!("{:#?}", num_x_mas);
 }
 
 fn _day3() {
@@ -40,7 +140,7 @@ fn _day3() {
         "xmul(2,4)%&mul[3,7]!@^do_not_mul(5,5)+mul(32,64]then(mul(11,8)mul(8,5))".to_string();
     let _raw_input = read_to_string("input03").unwrap(); // panic on possible file-reading errors
 
-    fn do_mul_sum(input: &String) -> i32 {
+    fn do_mul_sum(input: &str) -> i32 {
         let re = regex::Regex::new(r"mul\((\d+),(\d+)\)").unwrap();
         re.captures_iter(input)
             .map(|c| {
@@ -54,14 +154,14 @@ fn _day3() {
 
     println!("{:#?}", do_mul_sum(&_raw_input));
 
-    let _test2_input =
-        "xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))".to_string();
+    let _test2_input = "xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))";
     let _test3_input =
-        "xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()do()?mul(8,5))".to_string();
+        "xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()do()?mul(8,5))";
 
     let do_dont_sum: i32 = _raw_input
         .split("do()")
-        .map(|s| do_mul_sum(&s.split("don't()").next().unwrap().to_string()))
+        .map(|s| s.split_once("don't()").map_or(s, |s| s.0))
+        .map(do_mul_sum)
         .sum();
     println!("{:#?}", do_dont_sum);
 }
@@ -89,7 +189,7 @@ fn _day2() {
             .collect()
     }
 
-    fn is_safe(report: &Vec<i32>) -> bool {
+    fn is_safe(report: &[i32]) -> bool {
         let diffs: Vec<i32> = report
             .iter()
             .zip(report.iter().skip(1))
@@ -103,7 +203,7 @@ fn _day2() {
     let num_safe = lines.iter().filter(|l| is_safe(l)).count();
     println!("{:#?}", num_safe);
 
-    fn is_dampened_safe(report: &Vec<i32>) -> bool {
+    fn is_dampened_safe(report: &[i32]) -> bool {
         is_safe(report)
             || (0..report.len()).any(|i| {
                 let dampened: Vec<i32> = [&report[..i], &report[i + 1..]].concat();
@@ -141,7 +241,7 @@ fn _day1() {
 
     let lines = parse(_raw_input);
 
-    let head: Vec<_> = lines.iter().take(10).map(|l| l.clone()).collect();
+    let head: Vec<_> = lines.iter().take(10).copied().collect();
     let _sol = head.into_iter().map(|(a, b)| format!("{a} {b}")).join("\n");
 
     // println!("{_sol}");
@@ -150,12 +250,12 @@ fn _day1() {
     // println!("{:?}", v1.into_iter().sorted().collect::<Vec<_>>());
     // println!("{:?}", v2.into_iter().sorted().collect::<Vec<_>>());
 
-    let s1 = v1.clone().into_iter().sorted().collect::<Vec<_>>();
-    let s2 = v2.clone().into_iter().sorted().collect::<Vec<_>>();
+    let s1 = v1.iter().sorted().collect::<Vec<_>>();
+    let s2 = v2.iter().sorted().collect::<Vec<_>>();
 
-    let pairs: Vec<_> = s1.into_iter().zip(s2.into_iter()).collect();
+    let pairs: Vec<_> = s1.into_iter().zip(s2).collect();
     // println!("{:#?}", pairs);
-    let sum_diffs: i32 = pairs.iter().map(|(a, b)| (a - b).abs()).sum();
+    let sum_diffs: i32 = pairs.iter().map(|(a, b)| (*a - *b).abs()).sum();
     println!("{:#?}", sum_diffs);
 
     let counts = v2.into_iter().counts();
