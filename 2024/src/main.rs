@@ -10,6 +10,8 @@
 // use std::{clone, fs::read_to_string};
 use itertools::iproduct;
 use itertools::Itertools;
+use std::cmp::Ordering;
+use std::collections::HashSet;
 use std::fs::read_to_string;
 
 // This is the main function.
@@ -35,7 +37,77 @@ fn main() {
 
     // _day3();
 
-    _day4();
+    // _day4();
+
+    _day5();
+}
+
+fn _day5() {
+    let inputs = [
+        "47|53\n\
+         97|13\n\
+         97|61\n\
+         97|47\n\
+         75|29\n\
+         61|13\n\
+         75|53\n\
+         29|13\n\
+         97|29\n\
+         53|29\n\
+         61|53\n\
+         97|53\n\
+         61|29\n\
+         47|13\n\
+         75|47\n\
+         97|75\n\
+         47|61\n\
+         75|61\n\
+         47|29\n\
+         75|13\n\
+         53|13\n\
+         \n\
+         75,47,61,53,29\n\
+         97,61,53,29,13\n\
+         75,29,13\n\
+         75,97,47,61,53\n\
+         61,13,29\n\
+         97,13,75,29,47\n"
+            .to_string(),
+        read_to_string("input05").unwrap(),
+    ];
+    let input = inputs[1].clone();
+    let (ordering_raw, page_num_updates_raw) = input.split_once("\n\n").unwrap();
+
+    fn parse_ordering(raw: &str) -> (i32, i32) {
+        raw.split("|")
+            .map(|s| s.parse().unwrap())
+            .collect_tuple()
+            .unwrap()
+    }
+    let page_orderings: HashSet<(_, _)> = ordering_raw.lines().map(parse_ordering).collect();
+    let updates: Vec<Vec<_>> = page_num_updates_raw
+        .lines()
+        .map(|row| row.split(",").map(|s| s.parse().unwrap()).collect())
+        .collect();
+
+    let is_ordered = |pages: &&Vec<_>| {
+        pages
+            .iter()
+            .zip(pages.iter().skip(1))
+            .all(|(a, b)| page_orderings.contains(&(*a, *b)))
+    };
+    let (ordered, unordered): (Vec<_>, Vec<_>) = updates.iter().partition(is_ordered);
+    println!("{:#?}", ordered.iter().map(|pgs| pgs[pgs.len() / 2]).sum::<i32>());
+
+    let reorder = |pages: &&Vec<_>| {
+        let mut new_pages = pages.to_vec();
+        new_pages.sort_by(|p1, p2| match page_orderings.contains(&(*p1, *p2)) {
+            true => Ordering::Less,
+            false => Ordering::Greater,
+        });
+        new_pages
+    };
+    println!("{:#?}", unordered.iter().map(reorder).map(|pgs| pgs[pgs.len() / 2]).sum::<i32>());
 }
 
 fn _day4() {
