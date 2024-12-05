@@ -37,9 +37,30 @@ fn main() {
 
     // _day3();
 
-    // _day4();
+    _day4();
 
     _day5();
+}
+
+trait Then<T> {
+    fn then<F: FnOnce(T) -> R, R>(self, f: F) -> R;
+}
+
+impl<T> Then<T> for T {
+    fn then<F: FnOnce(T) -> R, R>(self, f: F) -> R {
+        f(self)
+    }
+}
+
+trait Tap: Sized {
+    fn tap<F: FnOnce(&mut Self)>(self, f: F) -> Self;
+}
+
+impl<T> Tap for T {
+    fn tap<F: FnOnce(&mut Self)>(mut self, f: F) -> Self {
+        f(&mut self);
+        self
+    }
 }
 
 fn _day5() {
@@ -91,23 +112,25 @@ fn _day5() {
         .collect();
 
     let is_ordered = |pages: &&Vec<_>| {
-        pages
-            .iter()
-            .zip(pages.iter().skip(1))
-            .all(|(a, b)| page_orderings.contains(&(*a, *b)))
+        let mut pairs = pages.iter().zip(pages.iter().skip(1));
+        pairs.all(|(a, b)| page_orderings.contains(&(*a, *b)))
     };
     let (ordered, unordered): (Vec<_>, Vec<_>) = updates.iter().partition(is_ordered);
-    println!("{:#?}", ordered.iter().map(|pgs| pgs[pgs.len() / 2]).sum::<i32>());
 
-    let reorder = |pages: &&Vec<_>| {
+    fn middle<T: AsRef<[i32]>>(slice: T) -> i32 {
+        slice.as_ref().then(|s| s[s.len() / 2])
+    }
+    println!("{:#?}", ordered.iter().map(middle).sum::<i32>());
+
+    let reordered_middle = |pages: &&Vec<_>| {
         let mut new_pages = pages.to_vec();
         new_pages.sort_by(|p1, p2| match page_orderings.contains(&(*p1, *p2)) {
             true => Ordering::Less,
             false => Ordering::Greater,
         });
-        new_pages
+        middle(new_pages)
     };
-    println!("{:#?}", unordered.iter().map(reorder).map(|pgs| pgs[pgs.len() / 2]).sum::<i32>());
+    println!("{:#?}", unordered.iter().map(reordered_middle).sum::<i32>());
 }
 
 fn _day4() {
@@ -188,15 +211,15 @@ fn _day4() {
     // println!("{:#?}", grid);
     println!("{:#?}", num_xmas);
 
-    fn rotated(mut coords: [(i32, i32); 4], n: usize) -> [(i32, i32); 4] {
-        coords.rotate_right(n);
-        coords
-    }
-
     let deltas = [(-1, -1), (-1, 1), (1, 1), (1, -1)];
     let num_x_mas: i32 = iproduct!(1..height - 1, 1..width - 1)
         .filter(|(j, i)| chars[*j as usize][*i as usize] == 'A')
-        .flat_map(|(j, i)| (0..4).map(move |n| rotated(deltas.map(|(dj, di)| (j + dj, i + di)), n)))
+        .flat_map(|(j, i)| {
+            std::iter::repeat(deltas.map(|(dj, di)| (j + dj, i + di)))
+                .enumerate()
+                .map(|(i, coords)| coords.tap(|c| c.rotate_right(i)))
+                .take(4)
+        })
         .filter(|rot_coords| {
             rot_coords
                 .iter()
