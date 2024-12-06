@@ -31,11 +31,11 @@ fn main() {
     // let resp = input_raw(day);
     // println!("{:#?}", resp);
 
-    // _day1();
+    _day1();
 
-    // _day2();
+    _day2();
 
-    // _day3();
+    _day3();
 
     _day4();
 
@@ -253,12 +253,10 @@ fn _day3() {
     let _test3_input =
         "xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()do()?mul(8,5))";
 
-    let do_dont_sum: i32 = _raw_input
+    let do_without_donts = _raw_input
         .split("do()")
-        .map(|s| s.split_once("don't()").map_or(s, |s| s.0))
-        .map(do_mul_sum)
-        .sum();
-    println!("{:#?}", do_dont_sum);
+        .map(|s| s.split_once("don't()").map_or(s, |s| s.0));
+    println!("{:#?}", do_without_donts.map(do_mul_sum).sum::<i32>());
 }
 
 fn _day2() {
@@ -285,11 +283,8 @@ fn _day2() {
     }
 
     fn is_safe(report: &[i32]) -> bool {
-        let diffs: Vec<i32> = report
-            .iter()
-            .zip(report.iter().skip(1))
-            .map(|(a, b)| b - a)
-            .collect();
+        let pairs = report.iter().zip(report.iter().skip(1));
+        let diffs: Vec<i32> = pairs.map(|(a, b)| b - a).collect();
 
         diffs.iter().all(|&d| 0 < d && d < 4) || diffs.iter().all(|&d| -4 < d && d < 0)
     }
@@ -322,23 +317,16 @@ fn _day1() {
 
     let _raw_input = read_to_string("input01").unwrap(); // panic on possible file-reading errors
 
-    fn parse(input: String) -> Vec<(i32, i32)> {
-        input
-            .lines()
-            .map(|line| {
-                line.split_whitespace()
-                    .map(|s| s.parse::<i32>().unwrap())
-                    .collect_tuple::<(i32, i32)>()
-                    .unwrap()
-            })
-            .collect()
+    fn to_pairs(line: &str) -> (i32, i32) {
+        line.split_whitespace()
+            .map(|s| s.parse().unwrap())
+            .collect_tuple()
+            .unwrap()
     }
+    let lines: Vec<_> = _raw_input.lines().map(to_pairs).collect();
 
-    let lines = parse(_raw_input);
-
-    let head: Vec<_> = lines.iter().take(10).copied().collect();
-    let _sol = head.into_iter().map(|(a, b)| format!("{a} {b}")).join("\n");
-
+    // let head: Vec<_> = lines.iter().take(10).copied().collect();
+    // let _sol = head.into_iter().map(|(a, b)| format!("{a} {b}")).join("\n");
     // println!("{_sol}");
 
     let (v1, v2): (Vec<_>, Vec<_>) = lines.into_iter().unzip();
