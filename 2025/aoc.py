@@ -32,11 +32,17 @@ def infer_day():
 
 @ft.cache
 def _input_bytes(day: int, year: int):
+    path = Path(f"inputs/input{day:02}")
+    if path.exists():
+        return path.read_bytes()
+
     resp: HTTPResponse = urlopen(Request(
         f'https://adventofcode.com/{year}/day/{day}/input',
         headers = {'Cookie': f"session={os.getenv('AOC_SESSION')}"}
     ))
-    return resp.read()
+    data = resp.read()
+    path.write_bytes(data)
+    return data
 
 
 def heredoc(s: str):
